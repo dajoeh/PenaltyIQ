@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPL Penalty Matchup Analyzer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen font-sans transition-colors duration-200">
+
+    <!-- Header -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 py-4 px-6 shadow-sm transition-colors duration-200">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">⚽ EPL Penalty Matchup Analyzer</h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">5-Season Synthetic Premier League Database — Empirical Bayes & Head-to-Head Engine</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <div id="db-badge" class="bg-slate-100 dark:bg-slate-700 px-3 py-1.5 rounded-full text-xs font-mono text-emerald-700 dark:text-emerald-300 border border-slate-300 dark:border-slate-600">
+                    Database: loading...
+                </div>
+                <!-- Theme Toggle Button -->
+                <button id="theme-toggle" type="button" onclick="toggleTheme()"
+                        title="Toggle Light / Dark Mode"
+                        class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 transition duration-150">
+                    <!-- Sun Icon (shown in Dark Mode) -->
+                    <svg id="icon-sun" class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m8.66-13.66l-.71.71M4.05 19.95l-.71.71M21 12h-1M4 12H3m16.66 7.66l-.71-.71M4.05 4.05l-.71-.71M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    <!-- Moon Icon (shown in Light Mode) -->
+                    <svg id="icon-moon" class="w-5 h-5 text-slate-700 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+
+        <!-- Controls & Search Card -->
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-md mb-8 transition-colors duration-200">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+                <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-200">Select Matchup Participants</h2>
+                <span id="league-summary-pill" class="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1 md:mt-0"></span>
+            </div>
+
+            <form id="matchup-form" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+                <!-- Kicker Input + Helper Select -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-2">Kicker Player #</label>
+                    <input type="number" id="kicker_number" required placeholder="Enter Kicker #"
+                           oninput="syncDropdownFromInput('kicker_number', 'kicker_select')"
+                           class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-mono">
+                    <select id="kicker_select" onchange="syncInputFromDropdown('kicker_select', 'kicker_number')"
+                            class="mt-2 w-full bg-slate-100 dark:bg-slate-900/70 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 font-mono focus:outline-none focus:border-emerald-500">
+                        <option value="">-- Or browse Kickers by volume --</option>
+                    </select>
+                </div>
+
+                <!-- Goalkeeper Input + Helper Select -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-2">Goalkeeper #</label>
+                    <input type="number" id="gk_number" required placeholder="Enter GK #"
+                           oninput="syncDropdownFromInput('gk_number', 'gk_select')"
+                           class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-mono">
+                    <select id="gk_select" onchange="syncInputFromDropdown('gk_select', 'gk_number')"
+                            class="mt-2 w-full bg-slate-100 dark:bg-slate-900/70 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 font-mono focus:outline-none focus:border-emerald-500">
+                        <option value="">-- Or browse Goalkeepers by volume --</option>
+                    </select>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="md:pt-6">
+                    <button type="submit"
+                            class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-6 rounded-lg transition duration-200 shadow-md">
+                        Analyze Matchup
+                    </button>
+                </div>
+            </form>
+
+            <!-- Dynamic Quick Select Helper Chips -->
+            <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-2">
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-medium mr-2">Featured Database Matchups:</span>
+                <button id="btn-repeat" type="button" class="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-xs px-3 py-1.5 rounded-md text-emerald-700 dark:text-emerald-300 border border-slate-300 dark:border-slate-600 transition">
+                    Loading Repeat Rivalry...
+                </button>
+                <button id="btn-first-time" type="button" class="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-xs px-3 py-1.5 rounded-md text-emerald-700 dark:text-emerald-300 border border-slate-300 dark:border-slate-600 transition">
+                    Loading First-Time Encounter...
+                </button>
+                <button id="btn-small-sample" type="button" class="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-xs px-3 py-1.5 rounded-md text-emerald-700 dark:text-emerald-300 border border-slate-300 dark:border-slate-600 transition">
+                    Loading Small-Sample Kicker...
+                </button>
+            </div>
+        </div>
+
+        <!-- Error Notification Banner -->
+        <div id="error-banner" class="hidden bg-red-100 dark:bg-red-900/50 border border-red-500 text-red-800 dark:text-red-200 p-4 rounded-xl mb-8">
+            <span id="error-message"></span>
+        </div>
+
+        <!-- Results Dashboard (Hidden until analyzed) -->
+        <div id="results-container" class="hidden space-y-8">
+
+            <!-- Encounter Scenario Banner -->
+            <div id="scenario-banner" class="p-4 rounded-xl border flex flex-col md:flex-row justify-between items-center shadow-md transition-colors duration-200">
+                <div>
+                    <span id="scenario-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"></span>
+                    <h3 id="scenario-title" class="text-lg font-bold mt-2"></h3>
+                    <p id="scenario-desc" class="text-sm text-slate-600 dark:text-slate-300 mt-1"></p>
+                </div>
+                <div class="mt-4 md:mt-0 text-right">
+                    <div class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">H2H Evidence Weight</div>
+                    <div id="h2h-weight-val" class="text-2xl font-mono font-bold text-emerald-600 dark:text-emerald-400">0.0%</div>
+                </div>
+            </div>
+
+            <!-- Player Profile Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Kicker Profile -->
+                <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-md transition-colors duration-200">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <span class="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300 text-xs px-2.5 py-1 rounded font-semibold">
+                                Penalty Kicker (ID #<span id="k-id-pill"></span>)
+                            </span>
+                            <h4 id="k-name" class="text-xl font-bold mt-2">Player Name</h4>
+                            <p id="k-meta" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Club | Tenure</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-3xl font-mono font-bold text-slate-900 dark:text-white">#<span id="k-sq">9</span></div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Primary Jersey #</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 pt-4 border-t border-slate-200 dark:border-slate-700 text-center">
+                        <div class="bg-slate-100 dark:bg-slate-900/60 p-3 rounded-lg">
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Total Kicked</div>
+                            <div id="k-kicked" class="text-lg font-bold font-mono text-slate-900 dark:text-white mt-1">0</div>
+                        </div>
+                        <div class="bg-slate-100 dark:bg-slate-900/60 p-3 rounded-lg">
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Converted</div>
+                            <div id="k-conv" class="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">0</div>
+                        </div>
+                        <div class="bg-slate-100 dark:bg-slate-900/60 p-3 rounded-lg">
+                            <div class="text-xs text-slate-500 dark:text-slate-400">EB Conv Rate</div>
+                            <div id="k-eb-rate" class="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-300 mt-1">0.0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Goalkeeper Profile -->
+                <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-md transition-colors duration-200">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <span class="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300 text-xs px-2.5 py-1 rounded font-semibold">
+                                Goalkeeper (ID #<span id="g-id-pill"></span>)
+                            </span>
+                            <h4 id="g-name" class="text-xl font-bold mt-2">Goalkeeper Name</h4>
+                            <p id="g-meta" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Club | Tenure</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-3xl font-mono font-bold text-slate-900 dark:text-white">#<span id="g-sq">1</span></div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Primary Jersey #</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 pt-4 border-t border-slate-200 dark:border-slate-700 text-center">
+                        <div class="bg-slate-100 dark:bg-slate-900/60 p-3 rounded-lg">
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Total Faced</div>
+                            <div id="g-faced" class="text-lg font-bold font-mono text-slate-900 dark:text-white mt-1">0</div>
+                        </div>
+                        <div class="bg-slate-100 dark:bg-slate-900/60 p-3 rounded-lg">
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Saved/Stopped</div>
+                            <div id="g-stops" class="text-lg font-bold font-mono text-red-600 dark:text-red-400 mt-1">0</div>
+                        </div>
+                        <div class="bg-slate-100 dark:bg-slate-900/60 p-3 rounded-lg">
+                            <div class="text-xs text-slate-500 dark:text-slate-400">EB Stop Rate</div>
+                            <div id="g-eb-rate" class="text-lg font-bold font-mono text-red-600 dark:text-red-300 mt-1">0.0%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Donut Chart Card -->
+                <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-md flex flex-col items-center transition-colors duration-200">
+                    <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4 self-start">Matchup Outcome Probability Split</h3>
+                    <div class="relative w-full max-w-[280px] h-[280px]">
+                        <canvas id="outcomeDonutChart"></canvas>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 w-full mt-6 text-center text-xs">
+                        <div class="bg-slate-100 dark:bg-slate-900/50 p-2 rounded">
+                            <span class="text-emerald-600 dark:text-emerald-400 font-bold block" id="lbl-conv-prob">0.0%</span>
+                            <span class="text-slate-500 dark:text-slate-400">Convert</span>
+                        </div>
+                        <div class="bg-slate-100 dark:bg-slate-900/50 p-2 rounded">
+                            <span class="text-red-600 dark:text-red-400 font-bold block" id="lbl-stop-prob">0.0%</span>
+                            <span class="text-slate-500 dark:text-slate-400">Stopped by GK</span>
+                        </div>
+                        <div class="bg-slate-100 dark:bg-slate-900/50 p-2 rounded">
+                            <span class="text-amber-600 dark:text-amber-400 font-bold block" id="lbl-miss-prob">0.0%</span>
+                            <span class="text-slate-500 dark:text-slate-400">Off-Target</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comparison Bar Chart Card -->
+                <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-md flex flex-col transition-colors duration-200">
+                    <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Marginal Baseline vs. Matchup Probability</h3>
+                    <div class="relative flex-grow h-[260px]">
+                        <canvas id="comparisonBarChart"></canvas>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-4 text-center">Compares each player's career Empirical Bayes rate against their adjusted matchup probability.</p>
+                </div>
+            </div>
+
+            <!-- Head-to-Head Chronological Match Log Table -->
+            <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-md transition-colors duration-200">
+                <h3 class="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">Historical Head-to-Head Encounter Log</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs uppercase">
+                                <th class="py-3 px-4">Event ID</th>
+                                <th class="py-3 px-4">Date</th>
+                                <th class="py-3 px-4">Season</th>
+                                <th class="py-3 px-4">Kicker (Jersey #)</th>
+                                <th class="py-3 px-4">Goalkeeper (Jersey #)</th>
+                                <th class="py-3 px-4 text-right">Outcome</th>
+                            </tr>
+                        </thead>
+                        <tbody id="h2h-table-body" class="divide-y divide-slate-200 dark:divide-slate-700">
+                            <!-- Populated dynamically via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        let donutChartInstance = null;
+        let barChartInstance = null;
+        let lastFetchedData = null;
+
+        function isDarkMode() {
+            return document.documentElement.classList.contains("dark");
+        }
+
+        function toggleTheme() {
+            const htmlEl = document.documentElement;
+            const sunIcon = document.getElementById("icon-sun");
+            const moonIcon = document.getElementById("icon-moon");
+
+            if (htmlEl.classList.contains("dark")) {
+                htmlEl.classList.remove("dark");
+                sunIcon.classList.add("hidden");
+                moonIcon.classList.remove("hidden");
+            } else {
+                htmlEl.classList.add("dark");
+                sunIcon.classList.remove("hidden");
+                moonIcon.classList.add("hidden");
+            }
+
+            if (lastFetchedData) {
+                renderDonutChart(lastFetchedData.matchup_probabilities);
+                renderBarChart(lastFetchedData.kicker, lastFetchedData.goalkeeper, lastFetchedData.matchup_probabilities);
+            }
+        }
+
+        function syncInputFromDropdown(selectId, inputId) {
+            const val = document.getElementById(selectId).value;
+            if (val) {
+                document.getElementById(inputId).value = val;
+            }
+        }
+
+        function syncDropdownFromInput(inputId, selectId) {
+            const val = document.getElementById(inputId).value;
+            const selectEl = document.getElementById(selectId);
+            selectEl.value = val;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            fetchDirectory();
+            document.getElementById("matchup-form").addEventListener("submit", (e) => {
+                e.preventDefault();
+                const kickerNum = document.getElementById("kicker_number").value;
+                const gkNum = document.getElementById("gk_number").value;
+                fetchMatchup(kickerNum, gkNum);
+            });
+        });
+
+        function setPair(k, g) {
+            document.getElementById("kicker_number").value = k;
+            document.getElementById("gk_number").value = g;
+            syncDropdownFromInput("kicker_number", "kicker_select");
+            syncDropdownFromInput("gk_number", "gk_select");
+            fetchMatchup(k, g);
+        }
+
+        async function fetchDirectory() {
+            try {
+                const res = await fetch("/api/directory");
+                const data = await res.json();
+                if (data.status === "ok") {
+                    document.getElementById("db-badge").textContent = `DB: ${data.db_path}`;
+                    document.getElementById("league-summary-pill").textContent =
+                        `${data.total_kickers} Outfielders | ${data.total_goalkeepers} GKs | ${data.league_baselines.total_penalties_in_db} Total PKs`;
+
+                    // Populate Kicker dropdown
+                    const kSelect = document.getElementById("kicker_select");
+                    data.kickers.forEach(k => {
+                        const opt = document.createElement("option");
+                        opt.value = k.player_number;
+                        opt.textContent = `#${k.player_number} - ${k.player_name} (${k.Converted}/${k.Total_PK_Kicked} PKs, EB ${(k.eb_prob_convert*100).toFixed(1)}%)`;
+                        kSelect.appendChild(opt);
+                    });
+
+                    // Populate Goalkeeper dropdown
+                    const gSelect = document.getElementById("gk_select");
+                    data.goalkeepers.forEach(g => {
+                        const opt = document.createElement("option");
+                        opt.value = g.player_number;
+                        opt.textContent = `#${g.player_number} - ${g.player_name} (${g.Stopped_by_GK}/${g.Total_PK_Faced} Saved, EB ${(g.eb_prob_stop_overall*100).toFixed(1)}%)`;
+                        gSelect.appendChild(opt);
+                    });
+
+                    // Configure Dynamic Quick Test Buttons from real database pairs
+                    const fp = data.featured_pairs;
+                    const btnRepeat = document.getElementById("btn-repeat");
+                    btnRepeat.textContent = `Kicker #${fp.repeat_rivalry.kicker_number} vs GK #${fp.repeat_rivalry.gk_number} (Repeat Rivalry: ${fp.repeat_rivalry.meetings}x)`;
+                    btnRepeat.onclick = () => setPair(fp.repeat_rivalry.kicker_number, fp.repeat_rivalry.gk_number);
+
+                    const btnFirst = document.getElementById("btn-first-time");
+                    btnFirst.textContent = `Kicker #${fp.first_time.kicker_number} vs GK #${fp.first_time.gk_number} (First-Time Encounter)`;
+                    btnFirst.onclick = () => setPair(fp.first_time.kicker_number, fp.first_time.gk_number);
+
+                    const btnSmall = document.getElementById("btn-small-sample");
+                    btnSmall.textContent = `Kicker #${fp.small_sample.kicker_number} vs GK #${fp.small_sample.gk_number} (Small Sample / 1 PK)`;
+                    btnSmall.onclick = () => setPair(fp.small_sample.kicker_number, fp.small_sample.gk_number);
+
+                    // Automatically load the top Repeat Rivalry pair on startup
+                    setPair(fp.repeat_rivalry.kicker_number, fp.repeat_rivalry.gk_number);
+                }
+            } catch (err) {
+                console.error("Failed to load directory:", err);
+            }
+        }
+
+        async function fetchMatchup(kickerNum, gkNum) {
+            const errorBanner = document.getElementById("error-banner");
+            const errorMessage = document.getElementById("error-message");
+            const resultsContainer = document.getElementById("results-container");
+
+            errorBanner.classList.add("hidden");
+            resultsContainer.classList.add("hidden");
+
+            try {
+                const res = await fetch(`/api/matchup?kicker_number=${kickerNum}&gk_number=${gkNum}`);
+                const data = await res.json();
+
+                if (res.status !== 200 || data.status === "error") {
+                    errorMessage.textContent = data.message || "An unknown error occurred.";
+                    errorBanner.classList.remove("hidden");
+                    return;
+                }
+
+                lastFetchedData = data;
+                renderDashboard(data);
+                resultsContainer.classList.remove("hidden");
+            } catch (err) {
+                errorMessage.textContent = "Network error connecting to Flask backend.";
+                errorBanner.classList.remove("hidden");
+                console.error(err);
+            }
+        }
+
+        function renderDashboard(data) {
+            const k = data.kicker;
+            const g = data.goalkeeper;
+            const h2h = data.h2h_summary;
+            const prob = data.matchup_probabilities;
+
+            const banner = document.getElementById("scenario-banner");
+            const badge = document.getElementById("scenario-badge");
+            const title = document.getElementById("scenario-title");
+            const desc = document.getElementById("scenario-desc");
+            const weightVal = document.getElementById("h2h-weight-val");
+
+            weightVal.textContent = `${(h2h.h2h_evidence_weight * 100).toFixed(1)}%`;
+
+            if (h2h.encounter_scenario === "First_Time_Encounter") {
+                banner.className = "p-4 rounded-xl border border-sky-300 bg-sky-50 dark:border-sky-500/50 dark:bg-sky-950/40 flex flex-col md:flex-row justify-between items-center shadow-md transition-colors duration-200";
+                badge.className = "bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-300 text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wide border border-sky-300 dark:border-sky-700";
+                badge.textContent = "First-Time Encounter";
+                title.textContent = `No Prior Head-to-Head History (${h2h.prior_h2h_total} Meetings)`;
+                desc.textContent = "Prediction is driven 100% by indirect log-odds Bradley-Terry combination of their independent Empirical Bayes marginal rates.";
+            } else {
+                banner.className = "p-4 rounded-xl border border-emerald-300 bg-emerald-50 dark:border-emerald-500/50 dark:bg-emerald-950/40 flex flex-col md:flex-row justify-between items-center shadow-md transition-colors duration-200";
+                badge.className = "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300 text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wide border border-emerald-300 dark:border-emerald-700";
+                badge.textContent = "Repeat Rivalry";
+                title.textContent = `${h2h.prior_h2h_total} Prior Head-to-Head Meeting(s) Found`;
+                desc.textContent = `Bayesian update applied: weighted combination of indirect log-odds prior and direct head-to-head stops (${h2h.prior_h2h_stopped_by_gk} saves in ${h2h.prior_h2h_on_target} on-target shots).`;
+            }
+
+            // Kicker Profile
+            document.getElementById("k-id-pill").textContent = k.player_number;
+            document.getElementById("k-name").textContent = k.player_name;
+            document.getElementById("k-meta").textContent = `${k.clubs_played_for} | ${k.tenure_category.replace(/_/g, " ")}`;
+            document.getElementById("k-sq").textContent = k.primary_squad_number;
+            document.getElementById("k-kicked").textContent = k.Total_PK_Kicked;
+            document.getElementById("k-conv").textContent = k.Converted;
+            document.getElementById("k-eb-rate").textContent = `${(k.eb_prob_convert * 100).toFixed(1)}%`;
+
+            // Goalkeeper Profile
+            document.getElementById("g-id-pill").textContent = g.player_number;
+            document.getElementById("g-name").textContent = g.player_name;
+            document.getElementById("g-meta").textContent = `${g.clubs_played_for} | ${g.tenure_category.replace(/_/g, " ")}`;
+            document.getElementById("g-sq").textContent = g.primary_squad_number;
+            document.getElementById("g-faced").textContent = g.Total_PK_Faced;
+            document.getElementById("g-stops").textContent = g.Stopped_by_GK;
+            document.getElementById("g-eb-rate").textContent = `${(g.eb_prob_stop_overall * 100).toFixed(1)}%`;
+
+            // Labels
+            document.getElementById("lbl-conv-prob").textContent = `${(prob.cross_prob_convert * 100).toFixed(1)}%`;
+            document.getElementById("lbl-stop-prob").textContent = `${(prob.cross_prob_stopped_by_gk * 100).toFixed(1)}%`;
+            document.getElementById("lbl-miss-prob").textContent = `${(prob.cross_prob_missed_off_target * 100).toFixed(1)}%`;
+
+            renderDonutChart(prob);
+            renderBarChart(k, g, prob);
+            renderH2HTable(data.h2h_events);
+        }
+
+        function renderDonutChart(prob) {
+            const ctx = document.getElementById("outcomeDonutChart").getContext("2d");
+            if (donutChartInstance) donutChartInstance.destroy();
+
+            const dark = isDarkMode();
+            const legendColor = dark ? "#cbd5e1" : "#334155";
+            const borderColor = dark ? "#1e293b" : "#ffffff";
+
+            donutChartInstance = new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: ["Converted", "Stopped by GK", "Off-Target"],
+                    datasets: [{
+                        data: [
+                            (prob.cross_prob_convert * 100).toFixed(1),
+                            (prob.cross_prob_stopped_by_gk * 100).toFixed(1),
+                            (prob.cross_prob_missed_off_target * 100).toFixed(1)
+                        ],
+                        backgroundColor: ["#2b9348", "#d62828", "#f77f00"],
+                        borderWidth: 2,
+                        borderColor: borderColor
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: "bottom", labels: { color: legendColor, boxWidth: 12 } }
+                    },
+                    cutout: "65%"
+                }
+            });
+        }
+
+        function renderBarChart(k, g, prob) {
+            const ctx = document.getElementById("comparisonBarChart").getContext("2d");
+            if (barChartInstance) barChartInstance.destroy();
+
+            const dark = isDarkMode();
+            const tickColor = dark ? "#94a3b8" : "#475569";
+            const gridColor = dark ? "#334155" : "#e2e8f0";
+            const legendColor = dark ? "#cbd5e1" : "#334155";
+
+            const kickerConvDerived = 1.0 - prob.cross_prob_stopped_by_gk - prob.cross_prob_missed_off_target;
+
+            barChartInstance = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: ["Kicker Conversion Rate", "Goalkeeper Stop Rate"],
+                    datasets: [
+                        {
+                            label: "Career Baseline (EB Shrunk)",
+                            data: [(k.eb_prob_convert * 100).toFixed(1), (g.eb_prob_stop_overall * 100).toFixed(1)],
+                            backgroundColor: "#3b82f6",
+                            borderRadius: 4
+                        },
+                        {
+                            label: "Matchup Adjusted Prob",
+                            data: [(kickerConvDerived * 100).toFixed(1), (prob.combined_on_target_stop_prob * 100).toFixed(1)],
+                            backgroundColor: "#10b981",
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { color: tickColor },
+                            grid: { color: gridColor }
+                        },
+                        x: {
+                            ticks: { color: tickColor },
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: "bottom", labels: { color: legendColor, boxWidth: 12 } }
+                    }
+                }
+            });
+        }
+
+        function renderH2HTable(events) {
+            const tbody = document.getElementById("h2h-table-body");
+            tbody.innerHTML = "";
+
+            if (!events || events.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-500 dark:text-slate-400 italic">No prior head-to-head encounters found between this kicker and goalkeeper in the 5-season database.</td></tr>`;
+                return;
+            }
+
+            events.forEach(ev => {
+                let badgeClass = "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-300";
+                if (ev.outcome === "Converted") badgeClass = "bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-700";
+                else if (ev.outcome === "Stopped_by_GK") badgeClass = "bg-red-100 text-red-800 border border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700";
+                else if (ev.outcome === "Missed_Off_Target") badgeClass = "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-700";
+
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-slate-100 dark:hover:bg-slate-700/40 transition duration-150";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-mono text-xs text-slate-600 dark:text-slate-300">${ev.event_id}</td>
+                    <td class="py-3 px-4 font-mono text-xs">${ev.date} (min ${ev.minute}')</td>
+                    <td class="py-3 px-4 text-xs">${ev.season} (${ev.half_season})</td>
+                    <td class="py-3 px-4 text-xs font-medium">${ev.kicker_name} <span class="text-slate-500 dark:text-slate-400">(${ev.kicker_club}, #${ev.kicker_squad_number})</span></td>
+                    <td class="py-3 px-4 text-xs font-medium">${ev.gk_name} <span class="text-slate-500 dark:text-slate-400">(${ev.gk_club}, #${ev.gk_squad_number})</span></td>
+                    <td class="py-3 px-4 text-right"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClass}">${ev.outcome.replace(/_/g, " ")}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>
