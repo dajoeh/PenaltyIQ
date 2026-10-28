@@ -13,3 +13,5 @@ Installation steps:
 4. Open http://127.0.0.1:5000 in your browser
 
 5. Have fun!
+
+Video Link: https://youtu.be/Rqf4tZlCnZ0
